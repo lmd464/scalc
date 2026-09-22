@@ -110,6 +110,8 @@ button.secondary{
 }
 .link-btn{ background:none; border:none; color:var(--text-dim); font-size:0.78rem; text-decoration:underline; cursor:pointer; padding:0; }
 .hint{ font-size:0.78rem; color:var(--text-dim); line-height:1.4; margin-top:10px; }
+.krw-sub{ font-size:0.72rem; color:var(--text-dim); font-family:var(--font-mono); font-variant-numeric:tabular-nums; margin-top:2px; }
+.field .krw-sub{ margin-top:-2px; }
 .tag-row{ display:flex; gap:8px; flex-wrap:wrap; }
 .badge{
   font-size:0.72rem; color:var(--text-dim); background:var(--surface-2); border:1px solid var(--border);
@@ -152,6 +154,7 @@ button.secondary{
   <div>
     <h1>물타기 계산기</h1>
     <p class="sub">조정판 물타기 전략 · 전액 USD 기준</p>
+    <p class="hint" id="fxRateLine" style="margin-top:2px; display:none;"></p>
   </div>
 
   <div class="card">
@@ -175,18 +178,22 @@ button.secondary{
       <div class="stat">
         <div class="k">평균단가</div>
         <div class="v" id="pfAvgPrice">-</div>
+        <div class="krw-sub" id="pfAvgPriceKrw"></div>
       </div>
       <div class="stat">
         <div class="k">평가금액(주식)</div>
         <div class="v" id="pfStockValue">-</div>
+        <div class="krw-sub" id="pfStockValueKrw"></div>
       </div>
       <div class="stat">
         <div class="k">남은 현금</div>
         <div class="v" id="pfCash">-</div>
+        <div class="krw-sub" id="pfCashKrw"></div>
       </div>
       <div class="stat">
         <div class="k">평가금액(총합)</div>
         <div class="v" id="pfValue">-</div>
+        <div class="krw-sub" id="pfValueKrw"></div>
       </div>
     </div>
 
@@ -260,10 +267,12 @@ button.secondary{
     <div class="field">
       <label for="seed">총 시드 ($)</label>
       <input type="number" id="seed" step="100" inputmode="numeric" placeholder="예: 10000">
+      <div class="krw-sub" id="seedKrw"></div>
     </div>
     <div class="field">
       <label for="entryPrice">진입가 ($)</label>
       <input type="number" id="entryPrice" step="0.01" placeholder="예: 100.00" inputmode="decimal">
+      <div class="krw-sub" id="entryPriceKrw"></div>
     </div>
     <button type="button" class="primary" id="startBtn">시작 (초기 20% 매수)</button>
   </div>
@@ -273,6 +282,7 @@ button.secondary{
     <div class="field">
       <label for="currentPrice">오늘 현재가 ($)</label>
       <input type="number" id="currentPrice" step="0.01" placeholder="예: 100.00" inputmode="decimal">
+      <div class="krw-sub" id="currentPriceKrw"></div>
     </div>
     <button type="button" class="primary" id="calcBtn">계산하기</button>
 
@@ -280,6 +290,7 @@ button.secondary{
       <span class="pill neutral" id="statusPill">대기</span>
       <div class="label" id="resultLabel">오늘의 액션</div>
       <div class="amount" id="resultAmount">-</div>
+      <div class="krw-sub" id="resultAmountKrw" style="font-size:0.8rem; margin-top:-2px; margin-bottom:6px;"></div>
       <div class="detail" id="resultDetail"></div>
     </div>
     <div class="status-grid" id="statsRow" style="margin-top:14px; display:none;">
@@ -353,11 +364,15 @@ if('serviceWorker' in navigator){
 
 
   const seedEl = $('seed'), entryEl = $('entryPrice'), curEl = $('currentPrice');
+  const seedKrw = $('seedKrw'), entryPriceKrw = $('entryPriceKrw'), currentPriceKrw = $('currentPriceKrw');
+  const fxRateLine = $('fxRateLine');
   const setupCard = $('setupCard'), dailyCard = $('dailyCard'), logCard = $('logCard');
   const pfTicker = $('pfTicker'), pfShares = $('pfShares'), pfAvgPrice = $('pfAvgPrice'),
         pfStockValue = $('pfStockValue'), pfCash = $('pfCash'), pfValue = $('pfValue');
+  const pfAvgPriceKrw = $('pfAvgPriceKrw'), pfStockValueKrw = $('pfStockValueKrw'),
+        pfCashKrw = $('pfCashKrw'), pfValueKrw = $('pfValueKrw');
   const resultBox = $('resultBox'), statusPill = $('statusPill'), resultLabel = $('resultLabel'),
-        resultAmount = $('resultAmount'), resultDetail = $('resultDetail'),
+        resultAmount = $('resultAmount'), resultAmountKrw = $('resultAmountKrw'), resultDetail = $('resultDetail'),
         statsRow = $('statsRow'), statPct = $('statPct'), statRecord = $('statRecord');
   const confirmBox = $('confirmBox'), confirmQ = $('confirmQ');
   const logList = $('logList');
@@ -368,9 +383,39 @@ if('serviceWorker' in navigator){
   const dailyArea = $('dailyActionArea'), dailyAreaQ = $('dailyActionQ'), dailyAreaYes = $('dailyActionYes'), dailyAreaNo = $('dailyActionNo');
 
   let state = null; // { seed, entryPrice, ticker, shares, totalCost, cash, prevWorstPct, strongUsed, log:[] }
+  let usdKrwRate = null;
+  let lastCurPrice = null; // 마지막으로 계산한 현재가 (환율 갱신 시 표시 기준 유지용)
 
   function fmtUsd(n){ return '$' + n.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}); }
   function fmtShares(n){ return n.toFixed(4) + '주'; }
+  function fmtKrw(usd){
+    if(usdKrwRate === null || isNaN(usd)) return '';
+    return '≈ ₩' + Math.round(usd * usdKrwRate).toLocaleString('ko-KR');
+  }
+
+  // ---- 환율(USD→KRW) 조회 : 키 없는 무료 API, 앱 열 때 1회만 조회 ----
+  async function fetchExchangeRate(){
+    try{
+      const res = await fetch('https://open.er-api.com/v6/latest/USD');
+      if(!res.ok) throw new Error('환율 조회 실패');
+      const json = await res.json();
+      const rate = json && json.rates && json.rates.KRW;
+      if(!rate) throw new Error('KRW 환율 없음');
+      usdKrwRate = rate;
+      fxRateLine.textContent = `기준환율: 1 USD ≈ ₩${rate.toLocaleString('ko-KR', {maximumFractionDigits:2})}`;
+      fxRateLine.style.display = '';
+      updateInputKrw(seedEl, seedKrw);
+      updateInputKrw(entryEl, entryPriceKrw);
+      updateInputKrw(curEl, currentPriceKrw);
+      renderPortfolio(lastCurPrice);
+    }catch(e){
+      // 환율 조회 실패 시 원화 표시만 생략하고 앱은 정상 작동
+    }
+  }
+  function updateInputKrw(inputEl, subEl){
+    const v = parseFloat(inputEl.value);
+    subEl.textContent = fmtKrw(v);
+  }
 
   function load(){
     try{
@@ -477,6 +522,7 @@ if('serviceWorker' in navigator){
   }
 
   function renderPortfolio(curPrice){
+    if(curPrice) lastCurPrice = curPrice;
     if(!state){
       pfTicker.value = '';
       pfTicker.disabled = true;
@@ -485,18 +531,27 @@ if('serviceWorker' in navigator){
       pfStockValue.textContent = '-';
       pfCash.textContent = '-';
       pfValue.textContent = '-';
+      pfAvgPriceKrw.textContent = '';
+      pfStockValueKrw.textContent = '';
+      pfCashKrw.textContent = '';
+      pfValueKrw.textContent = '';
       return;
     }
     pfTicker.disabled = false;
     if(document.activeElement !== pfTicker) pfTicker.value = state.ticker || '';
     pfShares.textContent = fmtShares(state.shares);
-    pfAvgPrice.textContent = state.shares > 0 ? fmtUsd(state.totalCost / state.shares) : '-';
+    const avgPrice = state.shares > 0 ? state.totalCost / state.shares : null;
+    pfAvgPrice.textContent = avgPrice !== null ? fmtUsd(avgPrice) : '-';
+    pfAvgPriceKrw.textContent = avgPrice !== null ? fmtKrw(avgPrice) : '';
     pfCash.textContent = fmtUsd(state.cash);
+    pfCashKrw.textContent = fmtKrw(state.cash);
     const price = curPrice || state.entryPrice;
     const stockVal = state.shares * price;
     const val = stockVal + state.cash;
     pfStockValue.textContent = fmtUsd(stockVal) + (curPrice ? '' : ' (진입가 기준)');
+    pfStockValueKrw.textContent = fmtKrw(stockVal);
     pfValue.textContent = fmtUsd(val) + (curPrice ? '' : ' (진입가 기준)');
+    pfValueKrw.textContent = fmtKrw(val);
   }
 
   pfTicker.addEventListener('blur', ()=>{
@@ -507,6 +562,10 @@ if('serviceWorker' in navigator){
     addLog(`종목명 변경: ${v || '(비움)'}`);
     save();
   });
+
+  seedEl.addEventListener('input', ()=> updateInputKrw(seedEl, seedKrw));
+  entryEl.addEventListener('input', ()=> updateInputKrw(entryEl, entryPriceKrw));
+  curEl.addEventListener('input', ()=> updateInputKrw(curEl, currentPriceKrw));
 
   function renderLog(){
     if(!state || !state.log || state.log.length === 0){
@@ -535,6 +594,7 @@ if('serviceWorker' in navigator){
 
   load();
   showApp();
+  fetchExchangeRate();
 
   // ---- 액션 확인 영역: 문서 흐름 안에 배치 (포트폴리오 카드용 / 오늘체크 카드용, 각각 독립) ----
   let pendingPfAction = null;
@@ -748,6 +808,7 @@ if('serviceWorker' in navigator){
       statusPill.textContent = '익절';
       resultAmount.textContent = '전량 익절';
       resultAmount.style.color = 'var(--up)';
+      resultAmountKrw.textContent = '';
       resultDetail.textContent = `평가금액 ${fmtUsd(portfolioValue)} 전량 매도 후, 그 20%(${fmtUsd(portfolioValue*INITIAL_PCT)})로 재진입하세요.`;
       statRecord.textContent = '익절';
       doConfirm({type:'takeprofit', price: cur}, `${fmtUsd(cur)}에 전량 매도하고 재진입하셨나요?`);
@@ -760,6 +821,7 @@ if('serviceWorker' in navigator){
         statusPill.textContent = '대기';
         resultAmount.textContent = '매수 없음';
         resultAmount.style.color = 'var(--text)';
+        resultAmountKrw.textContent = '';
         resultDetail.textContent = '전일보다 낙폭이 줄었습니다 (기록 갱신 실패). 매수하지 않습니다.';
         statRecord.textContent = '갱신 안됨';
       } else if(downPct >= STRONG_TRIGGER && !state.strongUsed){
@@ -769,6 +831,7 @@ if('serviceWorker' in navigator){
         resultLabel.textContent = '오늘의 액션 (최초 1회)';
         resultAmount.textContent = fmtUsd(buyAmount);
         resultAmount.style.color = 'var(--warn)';
+        resultAmountKrw.textContent = fmtKrw(buyAmount);
         resultDetail.textContent = `-${downPct.toFixed(1)}% 도달 — 평가금액(${fmtUsd(portfolioValue)})의 20% = ${fmtUsd(buyAmount)} 매수`;
         statRecord.textContent = '신기록 (강한매수)';
         doConfirm({type:'buy', price: cur, amount: buyAmount, downPct, isStrong:true}, `${fmtUsd(cur)}에 ${fmtUsd(buyAmount)} 매수하셨나요?`);
@@ -779,6 +842,7 @@ if('serviceWorker' in navigator){
         resultLabel.textContent = '오늘의 액션';
         resultAmount.textContent = fmtUsd(buyAmount);
         resultAmount.style.color = 'var(--down)';
+        resultAmountKrw.textContent = fmtKrw(buyAmount);
         resultDetail.textContent = `-${downPct.toFixed(1)}% 신기록 — 정률매수 ${fmtUsd(buyAmount)}`;
         statRecord.textContent = `신기록 (${downPct.toFixed(1)}%)`;
         if(buyAmount > 0){
@@ -791,6 +855,7 @@ if('serviceWorker' in navigator){
       resultLabel.textContent = '오늘의 액션';
       resultAmount.textContent = '매수 없음';
       resultAmount.style.color = 'var(--text)';
+      resultAmountKrw.textContent = '';
       resultDetail.textContent = '진입가 대비 -20% ~ +20% 구간입니다. 관망하세요.';
       statRecord.textContent = '-';
     }
