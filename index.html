@@ -143,7 +143,7 @@ button.secondary{
 <div class="wrap">
   <div>
     <h1>물타기 계산기</h1>
-    <p class="sub">SOXL 조정판 전략 · 전액 USD 기준</p>
+    <p class="sub">조정판 물타기 전략 · 전액 USD 기준</p>
   </div>
 
   <div class="card">
@@ -327,12 +327,12 @@ if('serviceWorker' in navigator){
 
   function load(){
     try{
-      const raw = localStorage.getItem('soxl_portfolio_usd_v1');
+      const raw = localStorage.getItem('watering_portfolio_usd_v1');
       if(raw) state = JSON.parse(raw);
     }catch(e){}
   }
   function save(){
-    try{ localStorage.setItem('soxl_portfolio_usd_v1', JSON.stringify(state)); }catch(e){}
+    try{ localStorage.setItem('watering_portfolio_usd_v1', JSON.stringify(state)); }catch(e){}
   }
   function addLog(text){
     state.log = state.log || [];
@@ -461,7 +461,7 @@ if('serviceWorker' in navigator){
     const a = pendingPfAction;
 
     if(a.type === 'reset'){
-      try{ localStorage.removeItem('soxl_portfolio_usd_v1'); }catch(e){}
+      try{ localStorage.removeItem('watering_portfolio_usd_v1'); }catch(e){}
       state = null;
       seedEl.value = 20000;
       entryEl.value = '';

@@ -1,5 +1,5 @@
 {
-  "name": "SOXL 물타기 계산기",
+  "name": "물타기 계산기",
   "short_name": "물타기계산기",
   "start_url": "./index.html",
   "scope": "./",
