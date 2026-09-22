@@ -106,12 +106,13 @@ button.secondary{
 .rule-table td.num{ font-family:var(--font-mono); font-variant-numeric:tabular-nums; }
 .section-title{
   font-family:var(--font-display); font-size:0.95rem; font-weight:700; margin:0 0 12px 0;
-  display:flex; align-items:center; justify-content:space-between;
+  display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; row-gap:4px; column-gap:12px;
 }
 .link-btn{ background:none; border:none; color:var(--text-dim); font-size:0.78rem; text-decoration:underline; cursor:pointer; padding:0; }
 .hint{ font-size:0.78rem; color:var(--text-dim); line-height:1.4; margin-top:10px; }
 .krw-sub{ font-size:0.72rem; color:var(--text-dim); font-family:var(--font-mono); font-variant-numeric:tabular-nums; margin-top:2px; overflow-wrap:anywhere; }
 .field .krw-sub{ margin-top:-2px; }
+.last-buy{ font-size:0.62rem; color:var(--text-dim); margin-top:1px; white-space:nowrap; }
 .tag-row{ display:flex; gap:8px; flex-wrap:wrap; }
 .badge{
   font-size:0.72rem; color:var(--text-dim); background:var(--surface-2); border:1px solid var(--border);
@@ -159,7 +160,7 @@ button.secondary{
 
   <div class="card">
     <div class="section-title">
-      내 포트폴리오
+      <span>내 포트폴리오 <span class="last-buy" id="pfLastBuyDate" style="font-family:var(--font-body); font-weight:400; text-transform:none; letter-spacing:normal;"></span></span>
       <span>
         <button type="button" class="link-btn" id="editBtn" style="margin-right:10px;">직접수정</button>
         <button type="button" class="link-btn" id="resetBtn">전체 초기화</button>
@@ -169,7 +170,7 @@ button.secondary{
     <div class="status-grid three">
       <div class="stat">
         <div class="k">종목명</div>
-        <input type="text" class="v" id="pfTicker" placeholder="예: SOXL" autocomplete="off">
+        <input type="text" class="v" id="pfTicker" placeholder="직접 입력" autocomplete="off">
       </div>
       <div class="stat">
         <div class="k">주식수</div>
@@ -369,6 +370,7 @@ if('serviceWorker' in navigator){
   const setupCard = $('setupCard'), dailyCard = $('dailyCard'), logCard = $('logCard');
   const pfTicker = $('pfTicker'), pfShares = $('pfShares'), pfAvgPrice = $('pfAvgPrice'),
         pfStockValue = $('pfStockValue'), pfCash = $('pfCash'), pfValue = $('pfValue');
+  const pfLastBuyDate = $('pfLastBuyDate');
   const pfAvgPriceKrw = $('pfAvgPriceKrw'), pfStockValueKrw = $('pfStockValueKrw'),
         pfCashKrw = $('pfCashKrw'), pfValueKrw = $('pfValueKrw');
   const resultBox = $('resultBox'), statusPill = $('statusPill'), resultLabel = $('resultLabel'),
@@ -382,7 +384,7 @@ if('serviceWorker' in navigator){
   const pfArea = $('portfolioActionArea'), pfAreaQ = $('portfolioActionQ'), pfAreaYes = $('portfolioActionYes'), pfAreaNo = $('portfolioActionNo');
   const dailyArea = $('dailyActionArea'), dailyAreaQ = $('dailyActionQ'), dailyAreaYes = $('dailyActionYes'), dailyAreaNo = $('dailyActionNo');
 
-  let state = null; // { seed, entryPrice, ticker, shares, totalCost, cash, prevWorstPct, strongUsed, log:[] }
+  let state = null; // { seed, entryPrice, ticker, shares, totalCost, cash, prevWorstPct, strongUsed, lastBuyDate, log:[] }
   let usdKrwRate = null;
   let lastCurPrice = null; // 마지막으로 계산한 현재가 (환율 갱신 시 표시 기준 유지용)
 
@@ -392,6 +394,7 @@ if('serviceWorker' in navigator){
     if(usdKrwRate === null || isNaN(usd)) return '';
     return '≈ ₩' + Math.round(usd * usdKrwRate).toLocaleString('ko-KR');
   }
+  function todayStr(){ return new Date().toISOString().slice(0, 10); }
 
   // ---- 환율(USD→KRW) 조회 : 키 없는 무료 API, 앱 열 때 1회만 조회 ----
   async function fetchExchangeRate(){
@@ -535,10 +538,12 @@ if('serviceWorker' in navigator){
       pfStockValueKrw.textContent = '';
       pfCashKrw.textContent = '';
       pfValueKrw.textContent = '';
+      pfLastBuyDate.textContent = '';
       return;
     }
     pfTicker.disabled = false;
     if(document.activeElement !== pfTicker) pfTicker.value = state.ticker || '';
+    pfLastBuyDate.textContent = state.lastBuyDate ? `마지막 매수 ${state.lastBuyDate.slice(5)}` : '';
     pfShares.textContent = fmtShares(state.shares);
     const avgPrice = state.shares > 0 ? state.totalCost / state.shares : null;
     pfAvgPrice.textContent = avgPrice !== null ? fmtUsd(avgPrice) : '-';
@@ -548,9 +553,9 @@ if('serviceWorker' in navigator){
     const price = curPrice || state.entryPrice;
     const stockVal = state.shares * price;
     const val = stockVal + state.cash;
-    pfStockValue.textContent = fmtUsd(stockVal) + (curPrice ? '' : ' (진입가 기준)');
+    pfStockValue.textContent = fmtUsd(stockVal);
     pfStockValueKrw.textContent = fmtKrw(stockVal);
-    pfValue.textContent = fmtUsd(val) + (curPrice ? '' : ' (진입가 기준)');
+    pfValue.textContent = fmtUsd(val);
     pfValueKrw.textContent = fmtKrw(val);
   }
 
@@ -644,6 +649,7 @@ if('serviceWorker' in navigator){
       state.totalCost += a.amount;
       state.cash -= a.amount;
       state.prevWorstPct = a.downPct;
+      state.lastBuyDate = todayStr();
       if(a.isStrong) state.strongUsed = true;
       addLog(`매수: ${fmtUsd(a.price)}에 ${fmtUsd(a.amount)} (${boughtShares.toFixed(4)}주)`);
       save();
@@ -659,7 +665,7 @@ if('serviceWorker' in navigator){
       state = {
         seed: state.seed, entryPrice: a.price, ticker: state.ticker,
         shares: newShares, totalCost: newInvest, cash: totalCash - newInvest,
-        prevWorstPct: null, strongUsed: false, log: state.log
+        prevWorstPct: null, strongUsed: false, lastBuyDate: todayStr(), log: state.log
       };
       save();
       confirmBox.classList.remove('show');
@@ -767,7 +773,7 @@ if('serviceWorker' in navigator){
 
     state = {
       seed, entryPrice: entry, ticker: '', shares, totalCost: investAmount, cash,
-      prevWorstPct: null, strongUsed: false, log: []
+      prevWorstPct: null, strongUsed: false, lastBuyDate: todayStr(), log: []
     };
     addLog(`시작: ${fmtUsd(entry)}에 ${fmtUsd(investAmount)} 매수 (${shares.toFixed(4)}주)`);
     save();
