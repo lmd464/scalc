@@ -94,6 +94,12 @@ button.secondary{
 .stat{ background:var(--surface-2); border:1px solid var(--border); border-radius:10px; padding:10px 12px; }
 .stat .k{ font-size:0.7rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.03em; margin-bottom:3px; }
 .stat .v{ font-family:var(--font-mono); font-size:0.95rem; font-weight:700; font-variant-numeric:tabular-nums; }
+.stat input.v{
+  background:transparent; border:none; padding:0; margin:0; width:100%;
+  font-variant-numeric:normal;
+}
+.stat input.v:focus{ outline:none; }
+.stat input.v:disabled{ opacity:0.55; }
 .rule-table{ width:100%; border-collapse:collapse; font-size:0.85rem; }
 .rule-table th, .rule-table td{ text-align:left; padding:7px 6px; border-bottom:1px solid var(--border); }
 .rule-table th{ color:var(--text-dim); font-size:0.72rem; text-transform:uppercase; letter-spacing:0.03em; font-weight:600; }
@@ -159,15 +165,27 @@ button.secondary{
 
     <div class="status-grid three">
       <div class="stat">
-        <div class="k">보유 주식</div>
+        <div class="k">종목명</div>
+        <input type="text" class="v" id="pfTicker" placeholder="예: SOXL" autocomplete="off">
+      </div>
+      <div class="stat">
+        <div class="k">주식수</div>
         <div class="v" id="pfShares">0주</div>
+      </div>
+      <div class="stat">
+        <div class="k">평균단가</div>
+        <div class="v" id="pfAvgPrice">-</div>
+      </div>
+      <div class="stat">
+        <div class="k">평가금액(주식)</div>
+        <div class="v" id="pfStockValue">-</div>
       </div>
       <div class="stat">
         <div class="k">남은 현금</div>
         <div class="v" id="pfCash">-</div>
       </div>
       <div class="stat">
-        <div class="k">평가금액</div>
+        <div class="k">평가금액(총합)</div>
         <div class="v" id="pfValue">-</div>
       </div>
     </div>
@@ -198,6 +216,10 @@ button.secondary{
       <div class="field">
         <label for="editShares">보유 주식 수</label>
         <input type="number" id="editShares" step="0.0001" inputmode="decimal">
+      </div>
+      <div class="field">
+        <label for="editAvgPrice">평균단가 ($)</label>
+        <input type="number" id="editAvgPrice" step="0.0001" inputmode="decimal">
       </div>
       <div class="field">
         <label for="editCash">남은 현금 ($)</label>
@@ -332,7 +354,8 @@ if('serviceWorker' in navigator){
 
   const seedEl = $('seed'), entryEl = $('entryPrice'), curEl = $('currentPrice');
   const setupCard = $('setupCard'), dailyCard = $('dailyCard'), logCard = $('logCard');
-  const pfShares = $('pfShares'), pfCash = $('pfCash'), pfValue = $('pfValue');
+  const pfTicker = $('pfTicker'), pfShares = $('pfShares'), pfAvgPrice = $('pfAvgPrice'),
+        pfStockValue = $('pfStockValue'), pfCash = $('pfCash'), pfValue = $('pfValue');
   const resultBox = $('resultBox'), statusPill = $('statusPill'), resultLabel = $('resultLabel'),
         resultAmount = $('resultAmount'), resultDetail = $('resultDetail'),
         statsRow = $('statsRow'), statPct = $('statPct'), statRecord = $('statRecord');
@@ -340,11 +363,11 @@ if('serviceWorker' in navigator){
   const logList = $('logList');
   const editBtn = $('editBtn'), editBox = $('editBox');
   const editShares = $('editShares'), editCash = $('editCash'), editEntry = $('editEntry'), editSeed = $('editSeed'),
-        editStrong = $('editStrong'), editPrevWorst = $('editPrevWorst');
+        editStrong = $('editStrong'), editPrevWorst = $('editPrevWorst'), editAvgPrice = $('editAvgPrice');
   const pfArea = $('portfolioActionArea'), pfAreaQ = $('portfolioActionQ'), pfAreaYes = $('portfolioActionYes'), pfAreaNo = $('portfolioActionNo');
   const dailyArea = $('dailyActionArea'), dailyAreaQ = $('dailyActionQ'), dailyAreaYes = $('dailyActionYes'), dailyAreaNo = $('dailyActionNo');
 
-  let state = null; // { seed, entryPrice, shares, cash, prevWorstPct, strongUsed, log:[] }
+  let state = null; // { seed, entryPrice, ticker, shares, totalCost, cash, prevWorstPct, strongUsed, log:[] }
 
   function fmtUsd(n){ return '$' + n.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}); }
   function fmtShares(n){ return n.toFixed(4) + '주'; }
@@ -354,6 +377,10 @@ if('serviceWorker' in navigator){
       const raw = localStorage.getItem('watering_portfolio_usd_v1');
       if(raw) state = JSON.parse(raw);
     }catch(e){}
+    if(state){
+      if(state.totalCost === undefined || state.totalCost === null) state.totalCost = state.shares * state.entryPrice;
+      if(state.ticker === undefined) state.ticker = '';
+    }
   }
   function save(skipCloud){
     try{ localStorage.setItem('watering_portfolio_usd_v1', JSON.stringify(state)); }catch(e){}
@@ -451,17 +478,35 @@ if('serviceWorker' in navigator){
 
   function renderPortfolio(curPrice){
     if(!state){
+      pfTicker.value = '';
+      pfTicker.disabled = true;
       pfShares.textContent = '0주';
+      pfAvgPrice.textContent = '-';
+      pfStockValue.textContent = '-';
       pfCash.textContent = '-';
       pfValue.textContent = '-';
       return;
     }
+    pfTicker.disabled = false;
+    if(document.activeElement !== pfTicker) pfTicker.value = state.ticker || '';
     pfShares.textContent = fmtShares(state.shares);
+    pfAvgPrice.textContent = state.shares > 0 ? fmtUsd(state.totalCost / state.shares) : '-';
     pfCash.textContent = fmtUsd(state.cash);
     const price = curPrice || state.entryPrice;
-    const val = state.shares * price + state.cash;
+    const stockVal = state.shares * price;
+    const val = stockVal + state.cash;
+    pfStockValue.textContent = fmtUsd(stockVal) + (curPrice ? '' : ' (진입가 기준)');
     pfValue.textContent = fmtUsd(val) + (curPrice ? '' : ' (진입가 기준)');
   }
+
+  pfTicker.addEventListener('blur', ()=>{
+    if(!state) return;
+    const v = pfTicker.value.trim();
+    if(v === (state.ticker || '')) return;
+    state.ticker = v;
+    addLog(`종목명 변경: ${v || '(비움)'}`);
+    save();
+  });
 
   function renderLog(){
     if(!state || !state.log || state.log.length === 0){
@@ -536,6 +581,7 @@ if('serviceWorker' in navigator){
     if(a.type === 'buy'){
       const boughtShares = a.amount / a.price;
       state.shares += boughtShares;
+      state.totalCost += a.amount;
       state.cash -= a.amount;
       state.prevWorstPct = a.downPct;
       if(a.isStrong) state.strongUsed = true;
@@ -551,8 +597,8 @@ if('serviceWorker' in navigator){
       const newShares = newInvest / a.price;
       addLog(`익절: ${fmtUsd(a.price)}에 전량 매도 (총 ${fmtUsd(totalCash)}) → 재진입`);
       state = {
-        seed: state.seed, entryPrice: a.price,
-        shares: newShares, cash: totalCash - newInvest,
+        seed: state.seed, entryPrice: a.price, ticker: state.ticker,
+        shares: newShares, totalCost: newInvest, cash: totalCash - newInvest,
         prevWorstPct: null, strongUsed: false, log: state.log
       };
       save();
@@ -585,13 +631,15 @@ if('serviceWorker' in navigator){
       const cash = parseFloat(editCash.value);
       const entry = parseFloat(editEntry.value);
       const seed = parseFloat(editSeed.value);
-      if(isNaN(shares) || isNaN(cash) || isNaN(entry) || isNaN(seed)){
+      const avgPrice = parseFloat(editAvgPrice.value);
+      if(isNaN(shares) || isNaN(cash) || isNaN(entry) || isNaN(seed) || isNaN(avgPrice)){
         alert('모든 값을 올바르게 입력해주세요.');
         closePfArea();
         return;
       }
       const prevWorstRaw = editPrevWorst.value.trim();
       state.shares = shares;
+      state.totalCost = avgPrice * shares;
       state.cash = cash;
       state.entryPrice = entry;
       state.seed = seed;
@@ -617,6 +665,7 @@ if('serviceWorker' in navigator){
     if(!state){ alert('먼저 시작 설정을 완료해주세요.'); return; }
     $('cloudSettingsBox').classList.remove('show');
     editShares.value = state.shares;
+    editAvgPrice.value = state.shares > 0 ? state.totalCost / state.shares : state.entryPrice;
     editCash.value = state.cash;
     editEntry.value = state.entryPrice;
     editSeed.value = state.seed;
@@ -657,7 +706,7 @@ if('serviceWorker' in navigator){
     const cash = seed - investAmount;
 
     state = {
-      seed, entryPrice: entry, shares, cash,
+      seed, entryPrice: entry, ticker: '', shares, totalCost: investAmount, cash,
       prevWorstPct: null, strongUsed: false, log: []
     };
     addLog(`시작: ${fmtUsd(entry)}에 ${fmtUsd(investAmount)} 매수 (${shares.toFixed(4)}주)`);
