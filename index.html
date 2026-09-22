@@ -213,11 +213,11 @@ button.secondary{
     <div class="section-title">최초 시작 설정</div>
     <div class="field">
       <label for="seed">총 시드 ($)</label>
-      <input type="number" id="seed" value="20000" step="100" inputmode="numeric">
+      <input type="number" id="seed" step="100" inputmode="numeric" placeholder="예: 10000">
     </div>
     <div class="field">
       <label for="entryPrice">진입가 ($)</label>
-      <input type="number" id="entryPrice" step="0.01" placeholder="예: 141.93" inputmode="decimal">
+      <input type="number" id="entryPrice" step="0.01" placeholder="예: 100.00" inputmode="decimal">
     </div>
     <button type="button" class="primary" id="startBtn">시작 (초기 20% 매수)</button>
   </div>
@@ -226,7 +226,7 @@ button.secondary{
     <div class="section-title">오늘 체크</div>
     <div class="field">
       <label for="currentPrice">오늘 현재가 ($)</label>
-      <input type="number" id="currentPrice" step="0.01" placeholder="예: 130.50" inputmode="decimal">
+      <input type="number" id="currentPrice" step="0.01" placeholder="예: 100.00" inputmode="decimal">
     </div>
     <button type="button" class="primary" id="calcBtn">계산하기</button>
 
@@ -463,7 +463,7 @@ if('serviceWorker' in navigator){
     if(a.type === 'reset'){
       try{ localStorage.removeItem('watering_portfolio_usd_v1'); }catch(e){}
       state = null;
-      seedEl.value = 20000;
+      seedEl.value = '';
       entryEl.value = '';
       curEl.value = '';
       resultBox.style.display = 'none';
