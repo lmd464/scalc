@@ -1,0 +1,620 @@
+<meta charset="UTF-8">
+<title>물타기 계산기</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-visual">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0e1116">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>
+:root{
+  --bg:#0e1116;
+  --surface:#161b22;
+  --surface-2:#1d232c;
+  --border:#2a313c;
+  --text:#e6e9ee;
+  --text-dim:#8b93a1;
+  --accent:#ff8a3d;
+  --up:#3ddc84;
+  --down:#ff5c6c;
+  --warn:#ffcc4d;
+  --font-display: 'Space Grotesk', -apple-system, sans-serif;
+  --font-body: 'Inter', -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+:root:not([data-theme="light"]){ color-scheme: dark; }
+:root[data-theme="light"]{
+  --bg:#f6f5f2;
+  --surface:#ffffff;
+  --surface-2:#eeece6;
+  --border:#ddd9d0;
+  --text:#1a1d22;
+  --text-dim:#6b7280;
+  --accent:#d9662a;
+  --up:#1a9e5c;
+  --down:#d63847;
+  --warn:#b8860b;
+  color-scheme: light;
+}
+*{box-sizing:border-box;}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--font-body);
+  padding-inline:16px;
+  padding-block:24px;
+}
+.wrap{ max-width:520px; margin:0 auto; display:flex; flex-direction:column; gap:16px; }
+h1{ font-family:var(--font-display); font-size:1.5rem; font-weight:700; margin:0 0 2px 0; letter-spacing:-0.02em; }
+.sub{ color:var(--text-dim); font-size:0.85rem; margin:0; }
+.card{ background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px; }
+.field{ display:flex; flex-direction:column; gap:6px; margin-bottom:14px; }
+.field:last-child{margin-bottom:0;}
+label{ font-size:0.78rem; color:var(--text-dim); font-weight:600; text-transform:uppercase; letter-spacing:0.03em; }
+input, select{
+  background:var(--surface-2); border:1px solid var(--border); border-radius:9px;
+  padding:11px 12px; font-size:1.05rem; color:var(--text);
+  font-family:var(--font-mono); font-variant-numeric:tabular-nums; width:100%;
+}
+input:focus, select:focus{ outline:2px solid var(--accent); outline-offset:-1px; }
+input:disabled{ opacity:0.55; }
+.row2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+button.primary{
+  background:var(--accent); color:#1a1206; border:none; border-radius:10px;
+  padding:13px; font-size:1rem; font-weight:700; font-family:var(--font-display);
+  cursor:pointer; width:100%;
+}
+button.primary:active{opacity:0.85;}
+button.secondary{
+  background:var(--surface-2); color:var(--text); border:1px solid var(--border); border-radius:10px;
+  padding:11px; font-size:0.9rem; font-weight:600; font-family:var(--font-body);
+  cursor:pointer; width:100%;
+}
+.result{
+  display:flex; flex-direction:column; gap:2px; align-items:center; text-align:center;
+  padding:20px 12px; border-radius:12px; background:var(--surface-2); border:1px solid var(--border);
+}
+.result .label{ font-size:0.8rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.04em; font-weight:600; }
+.result .amount{ font-family:var(--font-mono); font-size:2rem; font-weight:700; font-variant-numeric:tabular-nums; margin:4px 0; }
+.result .detail{ font-size:0.85rem; color:var(--text-dim); }
+.pill{
+  display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:999px;
+  font-size:0.78rem; font-weight:700; font-family:var(--font-mono);
+}
+.pill.up{background:color-mix(in srgb, var(--up) 18%, transparent);color:var(--up);}
+.pill.down{background:color-mix(in srgb, var(--down) 18%, transparent);color:var(--down);}
+.pill.neutral{background:var(--surface-2);color:var(--text-dim);}
+.pill.warn{background:color-mix(in srgb, var(--warn) 20%, transparent);color:var(--warn);}
+.status-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.status-grid.three{ grid-template-columns:1fr 1fr 1fr; }
+.stat{ background:var(--surface-2); border:1px solid var(--border); border-radius:10px; padding:10px 12px; }
+.stat .k{ font-size:0.7rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.03em; margin-bottom:3px; }
+.stat .v{ font-family:var(--font-mono); font-size:0.95rem; font-weight:700; font-variant-numeric:tabular-nums; }
+.rule-table{ width:100%; border-collapse:collapse; font-size:0.85rem; }
+.rule-table th, .rule-table td{ text-align:left; padding:7px 6px; border-bottom:1px solid var(--border); }
+.rule-table th{ color:var(--text-dim); font-size:0.72rem; text-transform:uppercase; letter-spacing:0.03em; font-weight:600; }
+.rule-table td.num{ font-family:var(--font-mono); font-variant-numeric:tabular-nums; }
+.section-title{
+  font-family:var(--font-display); font-size:0.95rem; font-weight:700; margin:0 0 12px 0;
+  display:flex; align-items:center; justify-content:space-between;
+}
+.link-btn{ background:none; border:none; color:var(--text-dim); font-size:0.78rem; text-decoration:underline; cursor:pointer; padding:0; }
+.hint{ font-size:0.78rem; color:var(--text-dim); line-height:1.4; margin-top:10px; }
+.tag-row{ display:flex; gap:8px; flex-wrap:wrap; }
+.badge{
+  font-size:0.72rem; color:var(--text-dim); background:var(--surface-2); border:1px solid var(--border);
+  padding:3px 9px; border-radius:999px; font-family:var(--font-mono);
+}
+.confirm-box{
+  display:none; margin-top:14px; padding:14px; border-radius:10px;
+  background:color-mix(in srgb, var(--accent) 10%, transparent); border:1px solid var(--accent);
+  position:relative; z-index:2;
+}
+.confirm-box.show{ display:block; }
+.confirm-box .q{ font-size:0.85rem; margin-bottom:10px; }
+.confirm-row{ display:flex; gap:8px; }
+.confirm-row button{ flex:1; }
+
+/* 확인 액션 영역: iOS에서 position:fixed 요소가 키보드 표시 중 시각적 뷰포트를 따라가지
+   못하고 어긋나는 문제가 있어, fixed를 쓰지 않고 문서 흐름 안(카드 내부)에 배치한다. */
+.action-area{
+  margin-top:14px; padding:14px; border-radius:10px;
+  background:color-mix(in srgb, var(--accent) 10%, transparent); border:1px solid var(--accent);
+  display:none;
+}
+.action-area.show{ display:block; }
+.action-area .q{ font-size:0.85rem; margin-bottom:10px; text-align:center; }
+.action-area .row{ display:flex; gap:8px; }
+.action-area .row button{ flex:1; }
+.log{ font-size:0.78rem; color:var(--text-dim); max-height:120px; overflow-y:auto; }
+.log-item{ display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid var(--border); gap:8px;}
+.log-item span:last-child{ text-align:right; }
+.log-item:last-child{ border-bottom:none; }
+.edit-box{ display:none; margin-top:14px; padding:14px; border-radius:10px; background:var(--surface-2); border:1px solid var(--border); position:relative; z-index:2; }
+.edit-box.show{ display:block; }
+.action-row{ display:flex; gap:8px; margin-top:10px; }
+.action-row button{ flex:1; }
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
+
+<div class="wrap">
+  <div>
+    <h1>물타기 계산기</h1>
+    <p class="sub">SOXL 조정판 전략 · 전액 USD 기준</p>
+  </div>
+
+  <div class="card">
+    <div class="section-title">
+      내 포트폴리오
+      <span>
+        <button type="button" class="link-btn" id="editBtn" style="margin-right:10px;">직접수정</button>
+        <button type="button" class="link-btn" id="resetBtn">전체 초기화</button>
+      </span>
+    </div>
+
+    <div class="status-grid three">
+      <div class="stat">
+        <div class="k">보유 주식</div>
+        <div class="v" id="pfShares">0주</div>
+      </div>
+      <div class="stat">
+        <div class="k">남은 현금</div>
+        <div class="v" id="pfCash">-</div>
+      </div>
+      <div class="stat">
+        <div class="k">평가금액</div>
+        <div class="v" id="pfValue">-</div>
+      </div>
+    </div>
+
+    <div class="edit-box" id="editBox">
+      <div class="field">
+        <label for="editShares">보유 주식 수</label>
+        <input type="number" id="editShares" step="0.0001" inputmode="decimal">
+      </div>
+      <div class="field">
+        <label for="editCash">남은 현금 ($)</label>
+        <input type="number" id="editCash" step="0.01" inputmode="decimal">
+      </div>
+      <div class="field">
+        <label for="editEntry">이번 사이클 진입가 ($)</label>
+        <input type="number" id="editEntry" step="0.01" inputmode="decimal">
+      </div>
+      <div class="field">
+        <label for="editSeed">총 시드 ($)</label>
+        <input type="number" id="editSeed" step="1" inputmode="numeric">
+      </div>
+      <div class="field">
+        <label for="editStrong">강한매수(-50%) 이번 사이클 사용?</label>
+        <select id="editStrong">
+          <option value="no">아니오</option>
+          <option value="yes">예 (사용함)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="editPrevWorst">직전 최대 낙폭 % (모르면 비워두기)</label>
+        <input type="number" id="editPrevWorst" step="0.1" inputmode="decimal" placeholder="예: 32.5">
+      </div>
+    </div>
+
+    <div class="action-area" id="portfolioActionArea">
+      <div class="q" id="portfolioActionQ"></div>
+      <div class="row">
+        <button type="button" class="primary" id="portfolioActionYes">확인</button>
+        <button type="button" class="secondary" id="portfolioActionNo">취소</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="setupCard">
+    <div class="section-title">최초 시작 설정</div>
+    <div class="field">
+      <label for="seed">총 시드 ($)</label>
+      <input type="number" id="seed" value="20000" step="100" inputmode="numeric">
+    </div>
+    <div class="field">
+      <label for="entryPrice">진입가 ($)</label>
+      <input type="number" id="entryPrice" step="0.01" placeholder="예: 141.93" inputmode="decimal">
+    </div>
+    <button type="button" class="primary" id="startBtn">시작 (초기 20% 매수)</button>
+  </div>
+
+  <div class="card" id="dailyCard" style="display:none;">
+    <div class="section-title">오늘 체크</div>
+    <div class="field">
+      <label for="currentPrice">오늘 현재가 ($)</label>
+      <input type="number" id="currentPrice" step="0.01" placeholder="예: 130.50" inputmode="decimal">
+    </div>
+    <button type="button" class="primary" id="calcBtn">계산하기</button>
+
+    <div class="result" id="resultBox" style="margin-top:14px; display:none;">
+      <span class="pill neutral" id="statusPill">대기</span>
+      <div class="label" id="resultLabel">오늘의 액션</div>
+      <div class="amount" id="resultAmount">-</div>
+      <div class="detail" id="resultDetail"></div>
+    </div>
+    <div class="status-grid" id="statsRow" style="margin-top:14px; display:none;">
+      <div class="stat">
+        <div class="k">진입가 대비</div>
+        <div class="v" id="statPct">-</div>
+      </div>
+      <div class="stat">
+        <div class="k">기록 갱신</div>
+        <div class="v" id="statRecord">-</div>
+      </div>
+    </div>
+
+    <div class="confirm-box" id="confirmBox">
+      <div class="q" id="confirmQ"></div>
+    </div>
+
+    <div class="action-area" id="dailyActionArea">
+      <div class="q" id="dailyActionQ"></div>
+      <div class="row">
+        <button type="button" class="primary" id="dailyActionYes">실제로 매수/매도했음</button>
+        <button type="button" class="secondary" id="dailyActionNo">아직 안 함</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="logCard" style="display:none;">
+    <div class="section-title">거래 기록</div>
+    <div class="log" id="logList"></div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">조정판 룰 요약</div>
+    <table class="rule-table">
+      <thead><tr><th>하락률</th><th>대응</th></tr></thead>
+      <tbody>
+        <tr><td>+20% 이상</td><td class="num">전량 익절 → 20%로 재진입</td></tr>
+        <tr><td>-20% ~ -49%</td><td class="num">전 기록 갱신 시 시드×0.00005×하락%</td></tr>
+        <tr><td>-50% (최초 1회)</td><td class="num">그 시점 평가금액의 20%</td></tr>
+        <tr><td>-50% 이후</td><td class="num">강한매수 없이 정률매수만 계속</td></tr>
+      </tbody>
+    </table>
+    <div class="tag-row" style="margin-top:12px;">
+      <span class="badge">초기매수 20%</span>
+      <span class="badge">coef 0.00005</span>
+      <span class="badge">강한매수 20%</span>
+      <span class="badge">트리거 -50%</span>
+    </div>
+  </div>
+
+  <p class="hint" style="text-align:center;">
+    현재가는 야후 파이낸스, 네이버 증권 등에서 직접 확인해 입력하세요.<br>
+    모든 금액은 달러(USD) 기준입니다. 환전은 별도로 관리하세요.<br>
+    이 페이지는 투자 조언이 아니며, 계산 보조 도구입니다.
+  </p>
+</div>
+
+<script>
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+(function(){
+  const $ = id => document.getElementById(id);
+  const COEF = 0.00005, STRONG_PCT = 0.20, STRONG_TRIGGER = 50, TP_TRIGGER = 20, INITIAL_PCT = 0.20;
+
+  // ---- 모바일 키보드 대응 ----
+  function bindSafeClick(el, handler){
+    if(!el) return;
+    el.addEventListener('click', handler);
+  }
+
+
+  const seedEl = $('seed'), entryEl = $('entryPrice'), curEl = $('currentPrice');
+  const setupCard = $('setupCard'), dailyCard = $('dailyCard'), logCard = $('logCard');
+  const pfShares = $('pfShares'), pfCash = $('pfCash'), pfValue = $('pfValue');
+  const resultBox = $('resultBox'), statusPill = $('statusPill'), resultLabel = $('resultLabel'),
+        resultAmount = $('resultAmount'), resultDetail = $('resultDetail'),
+        statsRow = $('statsRow'), statPct = $('statPct'), statRecord = $('statRecord');
+  const confirmBox = $('confirmBox'), confirmQ = $('confirmQ');
+  const logList = $('logList');
+  const editBtn = $('editBtn'), editBox = $('editBox');
+  const editShares = $('editShares'), editCash = $('editCash'), editEntry = $('editEntry'), editSeed = $('editSeed'),
+        editStrong = $('editStrong'), editPrevWorst = $('editPrevWorst');
+  const pfArea = $('portfolioActionArea'), pfAreaQ = $('portfolioActionQ'), pfAreaYes = $('portfolioActionYes'), pfAreaNo = $('portfolioActionNo');
+  const dailyArea = $('dailyActionArea'), dailyAreaQ = $('dailyActionQ'), dailyAreaYes = $('dailyActionYes'), dailyAreaNo = $('dailyActionNo');
+
+  let state = null; // { seed, entryPrice, shares, cash, prevWorstPct, strongUsed, log:[] }
+
+  function fmtUsd(n){ return '$' + n.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+  function fmtShares(n){ return n.toFixed(4) + '주'; }
+
+  function load(){
+    try{
+      const raw = localStorage.getItem('soxl_portfolio_usd_v1');
+      if(raw) state = JSON.parse(raw);
+    }catch(e){}
+  }
+  function save(){
+    try{ localStorage.setItem('soxl_portfolio_usd_v1', JSON.stringify(state)); }catch(e){}
+  }
+  function addLog(text){
+    state.log = state.log || [];
+    state.log.unshift({t: new Date().toLocaleDateString('ko-KR'), text});
+    state.log = state.log.slice(0, 20);
+  }
+
+  function renderPortfolio(curPrice){
+    if(!state){
+      pfShares.textContent = '0주';
+      pfCash.textContent = '-';
+      pfValue.textContent = '-';
+      return;
+    }
+    pfShares.textContent = fmtShares(state.shares);
+    pfCash.textContent = fmtUsd(state.cash);
+    const price = curPrice || state.entryPrice;
+    const val = state.shares * price + state.cash;
+    pfValue.textContent = fmtUsd(val) + (curPrice ? '' : ' (진입가 기준)');
+  }
+
+  function renderLog(){
+    if(!state || !state.log || state.log.length === 0){
+      logCard.style.display = 'none';
+      return;
+    }
+    logCard.style.display = '';
+    logList.innerHTML = state.log.map(l =>
+      `<div class="log-item"><span>${l.t}</span><span>${l.text}</span></div>`
+    ).join('');
+  }
+
+  function showApp(){
+    if(state){
+      setupCard.style.display = 'none';
+      dailyCard.style.display = '';
+      renderPortfolio();
+      renderLog();
+    } else {
+      setupCard.style.display = '';
+      dailyCard.style.display = 'none';
+      logCard.style.display = 'none';
+      renderPortfolio();
+    }
+  }
+
+  load();
+  showApp();
+
+  // ---- 액션 확인 영역: 문서 흐름 안에 배치 (포트폴리오 카드용 / 오늘체크 카드용, 각각 독립) ----
+  let pendingPfAction = null;
+  let pendingDailyAction = null;
+
+  function closePfArea(){
+    pfArea.classList.remove('show');
+    pendingPfAction = null;
+  }
+  function openPfArea(action, questionText, yesLabel, noLabel){
+    pendingPfAction = action;
+    pfAreaQ.textContent = questionText;
+    pfAreaYes.textContent = yesLabel || '확인';
+    pfAreaNo.textContent = noLabel || '취소';
+    pfArea.classList.add('show');
+  }
+
+  function closeDailyArea(){
+    dailyArea.classList.remove('show');
+    pendingDailyAction = null;
+  }
+  function openDailyArea(action, questionText, yesLabel, noLabel){
+    pendingDailyAction = action;
+    dailyAreaQ.textContent = questionText;
+    dailyAreaYes.textContent = yesLabel || '확인';
+    dailyAreaNo.textContent = noLabel || '취소';
+    dailyArea.classList.add('show');
+  }
+
+  bindSafeClick(pfAreaNo, ()=>{
+    closePfArea();
+    editBox.classList.remove('show');
+  });
+
+  bindSafeClick(dailyAreaNo, ()=>{
+    closeDailyArea();
+    confirmBox.classList.remove('show');
+  });
+
+  bindSafeClick(dailyAreaYes, ()=>{
+    if(!pendingDailyAction) return;
+    const a = pendingDailyAction;
+
+    if(a.type === 'buy'){
+      const boughtShares = a.amount / a.price;
+      state.shares += boughtShares;
+      state.cash -= a.amount;
+      state.prevWorstPct = a.downPct;
+      if(a.isStrong) state.strongUsed = true;
+      addLog(`매수: ${fmtUsd(a.price)}에 ${fmtUsd(a.amount)} (${boughtShares.toFixed(4)}주)`);
+      save();
+      confirmBox.classList.remove('show');
+      renderPortfolio(a.price);
+      renderLog();
+      resultDetail.textContent += ' (반영 완료)';
+    } else if(a.type === 'takeprofit'){
+      const totalCash = state.shares * a.price + state.cash;
+      const newInvest = totalCash * INITIAL_PCT;
+      const newShares = newInvest / a.price;
+      addLog(`익절: ${fmtUsd(a.price)}에 전량 매도 (총 ${fmtUsd(totalCash)}) → 재진입`);
+      state = {
+        seed: state.seed, entryPrice: a.price,
+        shares: newShares, cash: totalCash - newInvest,
+        prevWorstPct: null, strongUsed: false, log: state.log
+      };
+      save();
+      confirmBox.classList.remove('show');
+      renderPortfolio(a.price);
+      renderLog();
+      resultDetail.textContent += ' (반영 완료)';
+    }
+
+    closeDailyArea();
+  });
+
+  bindSafeClick(pfAreaYes, ()=>{
+    if(!pendingPfAction) return;
+    const a = pendingPfAction;
+
+    if(a.type === 'reset'){
+      try{ localStorage.removeItem('soxl_portfolio_usd_v1'); }catch(e){}
+      state = null;
+      seedEl.value = 20000;
+      entryEl.value = '';
+      curEl.value = '';
+      resultBox.style.display = 'none';
+      statsRow.style.display = 'none';
+      confirmBox.classList.remove('show');
+      editBox.classList.remove('show');
+      showApp();
+    } else if(a.type === 'editsave'){
+      const shares = parseFloat(editShares.value);
+      const cash = parseFloat(editCash.value);
+      const entry = parseFloat(editEntry.value);
+      const seed = parseFloat(editSeed.value);
+      if(isNaN(shares) || isNaN(cash) || isNaN(entry) || isNaN(seed)){
+        alert('모든 값을 올바르게 입력해주세요.');
+        closePfArea();
+        return;
+      }
+      const prevWorstRaw = editPrevWorst.value.trim();
+      state.shares = shares;
+      state.cash = cash;
+      state.entryPrice = entry;
+      state.seed = seed;
+      state.strongUsed = editStrong.value === 'yes';
+      state.prevWorstPct = prevWorstRaw === '' ? null : parseFloat(prevWorstRaw);
+      addLog(`직접수정: 주식 ${shares.toFixed(4)}, 현금 ${fmtUsd(cash)}, 진입가 ${fmtUsd(entry)}`);
+      save();
+      editBox.classList.remove('show');
+      renderPortfolio();
+      renderLog();
+    }
+
+    closePfArea();
+  });
+
+  bindSafeClick($('resetBtn'), ()=>{
+    editBox.classList.remove('show');
+    openPfArea({type:'reset'}, '전체 포트폴리오 기록을 정말 초기화할까요? 되돌릴 수 없습니다.', '초기화', '취소');
+  });
+
+  bindSafeClick(editBtn, ()=>{
+    if(!state){ alert('먼저 시작 설정을 완료해주세요.'); return; }
+    editShares.value = state.shares;
+    editCash.value = state.cash;
+    editEntry.value = state.entryPrice;
+    editSeed.value = state.seed;
+    editStrong.value = state.strongUsed ? 'yes' : 'no';
+    editPrevWorst.value = state.prevWorstPct !== null && state.prevWorstPct !== undefined ? state.prevWorstPct : '';
+    editBox.classList.add('show');
+    openPfArea({type:'editsave'}, '수정한 값을 저장할까요?', '저장', '취소');
+  });
+
+  bindSafeClick($('startBtn'), ()=>{
+    const seed = parseFloat(seedEl.value);
+    const entry = parseFloat(entryEl.value);
+    if(!seed || !entry){ alert('시드와 진입가를 입력해주세요.'); return; }
+
+    document.activeElement && document.activeElement.blur();
+
+    const investAmount = seed * INITIAL_PCT;
+    const shares = investAmount / entry;
+    const cash = seed - investAmount;
+
+    state = {
+      seed, entryPrice: entry, shares, cash,
+      prevWorstPct: null, strongUsed: false, log: []
+    };
+    addLog(`시작: ${fmtUsd(entry)}에 ${fmtUsd(investAmount)} 매수 (${shares.toFixed(4)}주)`);
+    save();
+    showApp();
+  });
+
+  function doConfirm(action, questionText){
+    confirmQ.textContent = questionText;
+    confirmBox.classList.add('show');
+    openDailyArea(action, questionText, '실제로 매수/매도했음', '아직 안 함');
+  }
+
+  bindSafeClick($('calcBtn'), ()=>{
+    if(!state){ alert('먼저 시작 설정을 완료해주세요.'); return; }
+    const cur = parseFloat(curEl.value);
+    if(!cur){ alert('현재가를 입력해주세요.'); return; }
+    document.activeElement && document.activeElement.blur();
+    runCalc(cur);
+  });
+
+  function runCalc(cur){
+    const entry = state.entryPrice;
+    const ret = (cur - entry) / entry * 100;
+    const portfolioValue = state.shares * cur + state.cash;
+
+    resultBox.style.display = '';
+    statsRow.style.display = '';
+    confirmBox.classList.remove('show');
+    closeDailyArea();
+
+    statPct.textContent = (ret>=0?'+':'') + ret.toFixed(1) + '%';
+    statPct.style.color = ret>=0 ? 'var(--up)' : 'var(--down)';
+
+    renderPortfolio(cur);
+
+    if(ret >= TP_TRIGGER){
+      statusPill.className = 'pill up';
+      statusPill.textContent = '익절';
+      resultAmount.textContent = '전량 익절';
+      resultAmount.style.color = 'var(--up)';
+      resultDetail.textContent = `평가금액 ${fmtUsd(portfolioValue)} 전량 매도 후, 그 20%(${fmtUsd(portfolioValue*INITIAL_PCT)})로 재진입하세요.`;
+      statRecord.textContent = '익절';
+      doConfirm({type:'takeprofit', price: cur}, `${fmtUsd(cur)}에 전량 매도하고 재진입하셨나요?`);
+    } else if(ret <= -TP_TRIGGER){
+      const downPct = -ret;
+      const isRecord = (state.prevWorstPct === null) || downPct > state.prevWorstPct;
+
+      if(!isRecord){
+        statusPill.className = 'pill neutral';
+        statusPill.textContent = '대기';
+        resultAmount.textContent = '매수 없음';
+        resultAmount.style.color = 'var(--text)';
+        resultDetail.textContent = '전일보다 낙폭이 줄었습니다 (기록 갱신 실패). 매수하지 않습니다.';
+        statRecord.textContent = '갱신 안됨';
+      } else if(downPct >= STRONG_TRIGGER && !state.strongUsed){
+        const buyAmount = Math.min(portfolioValue * STRONG_PCT, state.cash);
+        statusPill.className = 'pill warn';
+        statusPill.textContent = '강한매수';
+        resultLabel.textContent = '오늘의 액션 (최초 1회)';
+        resultAmount.textContent = fmtUsd(buyAmount);
+        resultAmount.style.color = 'var(--warn)';
+        resultDetail.textContent = `-${downPct.toFixed(1)}% 도달 — 평가금액(${fmtUsd(portfolioValue)})의 20% = ${fmtUsd(buyAmount)} 매수`;
+        statRecord.textContent = '신기록 (강한매수)';
+        doConfirm({type:'buy', price: cur, amount: buyAmount, downPct, isStrong:true}, `${fmtUsd(cur)}에 ${fmtUsd(buyAmount)} 매수하셨나요?`);
+      } else {
+        const buyAmount = Math.min(state.seed * COEF * downPct, state.cash);
+        statusPill.className = 'pill down';
+        statusPill.textContent = '매수';
+        resultLabel.textContent = '오늘의 액션';
+        resultAmount.textContent = fmtUsd(buyAmount);
+        resultAmount.style.color = 'var(--down)';
+        resultDetail.textContent = `-${downPct.toFixed(1)}% 신기록 — 정률매수 ${fmtUsd(buyAmount)}`;
+        statRecord.textContent = `신기록 (${downPct.toFixed(1)}%)`;
+        if(buyAmount > 0){
+          doConfirm({type:'buy', price: cur, amount: buyAmount, downPct, isStrong:false}, `${fmtUsd(cur)}에 ${fmtUsd(buyAmount)} 매수하셨나요?`);
+        }
+      }
+    } else {
+      statusPill.className = 'pill neutral';
+      statusPill.textContent = '관망';
+      resultLabel.textContent = '오늘의 액션';
+      resultAmount.textContent = '매수 없음';
+      resultAmount.style.color = 'var(--text)';
+      resultDetail.textContent = '진입가 대비 -20% ~ +20% 구간입니다. 관망하세요.';
+      statRecord.textContent = '-';
+    }
+  }
+})();
+</script>
