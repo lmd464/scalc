@@ -1,0 +1,13 @@
+name = "watering-calc-ai"
+main = "src/index.js"
+compatibility_date = "2024-11-01"
+
+# 일일 호출 한도(비용 보호)를 쓰려면 KV 네임스페이스를 만들고 아래 id를 채우세요.
+# 없어도 동작은 하지만, 그 경우 한도 체크 없이 요청이 무제한으로 Claude API를 호출합니다.
+#
+# 만드는 법: npx wrangler kv namespace create RATE_KV
+# 위 명령이 출력하는 id 값을 아래에 붙여넣으세요.
+#
+# [[kv_namespaces]]
+# binding = "RATE_KV"
+# id = "여기에_생성된_namespace_id"
